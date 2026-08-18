@@ -24,7 +24,7 @@ pool:
 variables:
 
   # Azure service connections
-  acrServiceConnection: 'credpayacr-connection'
+  acrServiceConnection: 'credpayacr-serviceconnection'
   azureServiceConnection: 'Manual connection'
 
   # ACR resource name (not the service connection name above) - needed for
@@ -98,15 +98,15 @@ stages:
         backendAzureRmStorageAccountName: $(tfStateStorage)
         backendAzureRmContainerName: $(tfStateContainer)
         backendAzureRmKey: $(tfStateKey)
-    # - task: TerraformTask@5
-    #   displayName: Terraform Apply (infra + push secrets to Key Vault)
-    #   inputs:
-    #     provider: azurerm
-    #     command: destroy
-    #     workingDirectory: terraform
-    #     commandOptions: >-
-    #       -auto-approve
-    #     environmentServiceNameAzureRM: $(azureServiceConnection)
+    - task: TerraformTask@5
+      displayName: Terraform Apply (infra + push secrets to Key Vault)
+      inputs:
+        provider: azurerm
+        command: destroy
+        workingDirectory: terraform
+        commandOptions: >-
+          -auto-approve
+        environmentServiceNameAzureRM: $(azureServiceConnection)
 
 
     #########################################################
@@ -115,17 +115,17 @@ stages:
     # Key Vault coordinates so they stay in sync with the pipeline
     # variables the Deploy stage reads secrets back with, below.
     #########################################################
-    # - task: TerraformTask@5
-    #   displayName: Terraform Apply (infra + push secrets to Key Vault)
-    #   inputs:
-    #     provider: azurerm
-    #     command: apply
-    #     workingDirectory: terraform
-    #     commandOptions: >-
-    #       -auto-approve
-    #       -var="key_vault_name=$(keyVaultName)"
-    #       -var="key_vault_resource_group_name=$(keyVaultResourceGroup)"
-    #     environmentServiceNameAzureRM: $(azureServiceConnection)
+    - task: TerraformTask@5
+      displayName: Terraform Apply (infra + push secrets to Key Vault)
+      inputs:
+        provider: azurerm
+        command: apply
+        workingDirectory: terraform
+        commandOptions: >-
+          -auto-approve
+          -var="key_vault_name=$(keyVaultName)"
+          -var="key_vault_resource_group_name=$(keyVaultResourceGroup)"
+          environmentServiceNameAzureRM: $(azureServiceConnection)
 
     #########################################################
     # Print the outputs so they're visible in the pipeline log

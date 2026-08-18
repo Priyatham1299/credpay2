@@ -224,113 +224,113 @@ stages:
           $(tag)
           latest
 
-# =========================================================
-# STAGE 3 - DEPLOY TO AKS
-# Reads secrets from Key Vault, recreates the K8s Secret, deploys the
-# schema Job, then user-service and payment-service (rolling update),
-# then the frontend (blue/green), runs a smoke test, and only then
-# switches live traffic to the new frontend color.
-# =========================================================
+# # =========================================================
+# # STAGE 3 - DEPLOY TO AKS
+# # Reads secrets from Key Vault, recreates the K8s Secret, deploys the
+# # schema Job, then user-service and payment-service (rolling update),
+# # then the frontend (blue/green), runs a smoke test, and only then
+# # switches live traffic to the new frontend color.
+# # =========================================================
 
-- stage: DeployToAKS
-  displayName: Deploy to AKS
-  dependsOn: DockerBuild
+# - stage: DeployToAKS
+#   displayName: Deploy to AKS
+#   dependsOn: DockerBuild
 
-  jobs:
+#   jobs:
 
-  - job: Deploy
-    displayName: Deploy CredPay
+#   - job: Deploy
+#     displayName: Deploy CredPay
 
-    steps:
+#     steps:
 
-    - checkout: self
+#     - checkout: self
 
-    #########################################################
-    # Point kubectl at the AKS cluster Terraform just applied.
-    # --admin fetches the cluster's local admin credential, bypassing
-    # Azure AD/Kubernetes RBAC (the cluster has azure_rbac_enabled = true) -
-    # simplest option for a non-interactive CI service principal. Requires
-    # the "Azure Kubernetes Service Cluster Admin Role" on scnew2 (an ARM
-    # role on the cluster - unrelated to the Key Vault role).
-    #########################################################
-    - task: AzureCLI@2
-      displayName: Get AKS Credentials
-      inputs:
-        azureSubscription: $(azureServiceConnection)
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
-          set -e
-          az aks get-credentials \
-            --resource-group $(aksResourceGroup) \
-            --name $(aksClusterName) \
-            --admin \
-            --overwrite-existing
-          kubectl get nodes
+#     #########################################################
+#     # Point kubectl at the AKS cluster Terraform just applied.
+#     # --admin fetches the cluster's local admin credential, bypassing
+#     # Azure AD/Kubernetes RBAC (the cluster has azure_rbac_enabled = true) -
+#     # simplest option for a non-interactive CI service principal. Requires
+#     # the "Azure Kubernetes Service Cluster Admin Role" on scnew2 (an ARM
+#     # role on the cluster - unrelated to the Key Vault role).
+#     #########################################################
+#     - task: AzureCLI@2
+#       displayName: Get AKS Credentials
+#       inputs:
+#         azureSubscription: $(azureServiceConnection)
+#         scriptType: bash
+#         scriptLocation: inlineScript
+#         inlineScript: |
+#           set -e
+#           az aks get-credentials \
+#             --resource-group $(aksResourceGroup) \
+#             --name $(aksClusterName) \
+#             --admin \
+#             --overwrite-existing
+#           kubectl get nodes
 
-    #########################################################
-    # Attach ACR to AKS - grants the kubelet identity AcrPull so pods can
-    # pull images with no imagePullSecrets. Idempotent: safe to re-run
-    # every deployment, only ever changes anything the very first time.
-    #########################################################
-    - task: AzureCLI@2
-      displayName: Attach ACR to AKS
-      inputs:
-        azureSubscription: $(azureServiceConnection)
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
-          set -e
-          az aks update \
-            --resource-group $(aksResourceGroup) \
-            --name $(aksClusterName) \
-            --attach-acr $(acrName)
+#     #########################################################
+#     # Attach ACR to AKS - grants the kubelet identity AcrPull so pods can
+#     # pull images with no imagePullSecrets. Idempotent: safe to re-run
+#     # every deployment, only ever changes anything the very first time.
+#     #########################################################
+#     - task: AzureCLI@2
+#       displayName: Attach ACR to AKS
+#       inputs:
+#         azureSubscription: $(azureServiceConnection)
+#         scriptType: bash
+#         scriptLocation: inlineScript
+#         inlineScript: |
+#           set -e
+#           az aks update \
+#             --resource-group $(aksResourceGroup) \
+#             --name $(aksClusterName) \
+#             --attach-acr $(acrName)
 
-    #########################################################
-    # Ensure the ingress-nginx controller is installed - required for the
-    # Ingress manifest applied later to mean anything.
-    #
-    # IMPORTANT: check whether the controller already exists (by Service,
-    # not by Helm release) before running `helm upgrade --install`. Confirmed
-    # live that a controller installed some other way (e.g. plain `kubectl
-    # apply` of the static manifests, as this cluster originally was) makes
-    # Helm refuse outright: it won't "adopt" a ServiceAccount it didn't
-    # create, since that ServiceAccount lacks Helm's own ownership
-    # labels/annotations. `helm upgrade --install` is only a safe no-op for
-    # something Helm itself installed - not for "the controller exists at
-    # all, however it got there". ubuntu-latest Microsoft-hosted agents
-    # ship with Helm preinstalled - no HelmInstaller task needed.
-    #########################################################
-    - task: AzureCLI@2
-      displayName: Ensure Ingress Controller Installed
-      inputs:
-        azureSubscription: $(azureServiceConnection)
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
-          set -e
-          if kubectl get svc ingress-nginx-controller -n ingress-nginx >/dev/null 2>&1; then
-            echo "ingress-nginx controller already present - skipping Helm install."
-          else
-            echo "ingress-nginx controller not found - installing via Helm..."
-            helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-            helm repo update
-            helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
-              --namespace ingress-nginx --create-namespace \
-              --wait --timeout 5m
-          fi
+    # #########################################################
+    # # Ensure the ingress-nginx controller is installed - required for the
+    # # Ingress manifest applied later to mean anything.
+    # #
+    # # IMPORTANT: check whether the controller already exists (by Service,
+    # # not by Helm release) before running `helm upgrade --install`. Confirmed
+    # # live that a controller installed some other way (e.g. plain `kubectl
+    # # apply` of the static manifests, as this cluster originally was) makes
+    # # Helm refuse outright: it won't "adopt" a ServiceAccount it didn't
+    # # create, since that ServiceAccount lacks Helm's own ownership
+    # # labels/annotations. `helm upgrade --install` is only a safe no-op for
+    # # something Helm itself installed - not for "the controller exists at
+    # # all, however it got there". ubuntu-latest Microsoft-hosted agents
+    # # ship with Helm preinstalled - no HelmInstaller task needed.
+    # #########################################################
+    # - task: AzureCLI@2
+    #   displayName: Ensure Ingress Controller Installed
+    #   inputs:
+    #     azureSubscription: $(azureServiceConnection)
+    #     scriptType: bash
+    #     scriptLocation: inlineScript
+    #     inlineScript: |
+    #       set -e
+    #       if kubectl get svc ingress-nginx-controller -n ingress-nginx >/dev/null 2>&1; then
+    #         echo "ingress-nginx controller already present - skipping Helm install."
+    #       else
+    #         echo "ingress-nginx controller not found - installing via Helm..."
+    #         helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+    #         helm repo update
+    #         helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+    #           --namespace ingress-nginx --create-namespace \
+    #           --wait --timeout 5m
+    #       fi
 
-          echo "Waiting for the ingress-nginx controller's public IP..."
-          for i in $(seq 1 30); do
-            IP=$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-            if [ -n "$IP" ]; then
-              echo "Ingress controller IP: $IP"
-              break
-            fi
-            echo "Still waiting... ($i/30)"
-            sleep 10
-          done
-          kubectl get svc -n ingress-nginx ingress-nginx-controller
+    #       echo "Waiting for the ingress-nginx controller's public IP..."
+    #       for i in $(seq 1 30); do
+    #         IP=$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+    #         if [ -n "$IP" ]; then
+    #           echo "Ingress controller IP: $IP"
+    #           break
+    #         fi
+    #         echo "Still waiting... ($i/30)"
+    #         sleep 10
+    #       done
+    #       kubectl get svc -n ingress-nginx ingress-nginx-controller
 
     #########################################################
     # Read the PostgreSQL secrets Terraform pushed into Key Vault.

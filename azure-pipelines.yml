@@ -116,10 +116,10 @@ stages:
     # variables the Deploy stage reads secrets back with, below.
     #########################################################
     - task: TerraformTask@5
-      displayName: Terraform Apply (infra + push secrets to Key Vault)
+      displayName: Terraform Destroy
       inputs:
         provider: azurerm
-        command: apply
+        command: destroy
         workingDirectory: terraform
         commandOptions: >-
           -auto-approve
